@@ -1,0 +1,67 @@
+# --- PATH bootstrap ---------------------------------------------------------
+export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
+typeset -U path PATH
+
+[[ -d "$HOME/.cache/lm-studio/bin" ]] && path+=("$HOME/.cache/lm-studio/bin")
+
+export VCPKG_ROOT="$HOME/repos/vcpkg"
+[[ -d "$VCPKG_ROOT" ]] && path+=("$VCPKG_ROOT")
+
+export QT_PATH="$HOME/Qt6.8.4"
+
+: "${KEEPASS_DB:=$HOME/Passwords.kdbx}"
+: "${KEEPASS_ENTRY_GITHUB:=GitHub Codex PAT}"
+
+# --- Powerlevel10k instant prompt -------------------------------------------
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+# --- Oh My Zsh --------------------------------------------------------------
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="powerlevel10k/powerlevel10k"
+plugins=(git)
+
+source "$ZSH/oh-my-zsh.sh"
+
+if [[ -z "$CURSOR_AGENT" ]]; then
+  [[ -r "$HOME/.p10k.zsh" ]] && source "$HOME/.p10k.zsh"
+fi
+
+# --- Optional env scaffold --------------------------------------------------
+[[ -r "$HOME/.local/bin/env" ]] && source "$HOME/.local/bin/env"
+
+load-codex-pat() {
+  local pat
+  pat="$(keepassxc-cli show -a password "$KEEPASS_DB" "$KEEPASS_ENTRY_GITHUB")" || return 1
+  export CODEX_PAT="$pat"
+  export GITHUB_PERSONAL_ACCESS_TOKEN="$pat"
+  unset pat
+}
+
+export DOCKER_HOST="unix:///var/run/docker.sock"
+
+# >>> conda initialize >>>
+__conda_setup="$("$HOME/miniforge3/bin/conda" 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
+        . "$HOME/miniforge3/etc/profile.d/conda.sh"
+    else
+        export PATH="$HOME/miniforge3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+
+if [ -f "$HOME/miniforge3/etc/profile.d/mamba.sh" ]; then
+    . "$HOME/miniforge3/etc/profile.d/mamba.sh"
+fi
+# <<< conda initialize <<<
+
+export NVM_DIR="$HOME/.nvm"
+if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+  source "$NVM_DIR/nvm.sh"
+  nvm use --lts >/dev/null
+fi
+[[ -s "$NVM_DIR/bash_completion" ]] && source "$NVM_DIR/bash_completion"
