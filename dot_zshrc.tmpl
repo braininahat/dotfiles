@@ -10,7 +10,9 @@ export VCPKG_ROOT="$HOME/repos/vcpkg"
 export QT_PATH="$HOME/Qt6.8.4"
 
 : "${KEEPASS_DB:=$HOME/Passwords.kdbx}"
-: "${KEEPASS_ENTRY_GITHUB:=GitHub Codex PAT}"
+: "${KEEPASS_ENTRY_GITHUB_PERSONAL:=GitHub Codex PAT}"
+: "${KEEPASS_ENTRY_GITHUB_ESC:=ESC GitHub Codex PAT}"
+: "${KEEPASS_ENTRY_GITHUB:=$KEEPASS_ENTRY_GITHUB_PERSONAL}"
 
 # --- Powerlevel10k instant prompt -------------------------------------------
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
@@ -31,13 +33,51 @@ fi
 # --- Optional env scaffold --------------------------------------------------
 [[ -r "$HOME/.local/bin/env" ]] && source "$HOME/.local/bin/env"
 
-load-codex-pat() {
-  local pat
-  pat="$(keepassxc-cli show -a password "$KEEPASS_DB" "$KEEPASS_ENTRY_GITHUB")" || return 1
-  export CODEX_PAT="$pat"
-  export GITHUB_PERSONAL_ACCESS_TOKEN="$pat"
-  unset pat
+load-mcp-secret() {
+  local server="$1" entry="${2:-}" token
+  case "$server" in
+    github)
+      entry="${entry:-$KEEPASS_ENTRY_GITHUB}"
+      if [[ "$GITHUB_PAT_SOURCE" != "$entry" || -z "$GITHUB_PERSONAL_ACCESS_TOKEN" ]]; then
+        token="$(keepassxc-cli show -a password "$KEEPASS_DB" "$entry")" || return 1
+        export GITHUB_PERSONAL_ACCESS_TOKEN="$token"
+        export CODEX_PAT="$token"
+        export GITHUB_PAT_SOURCE="$entry"
+        unset token
+      fi
+      ;;
+    *)
+      print -u2 "load-mcp-secret: no loader for '$server'"
+      return 1
+      ;;
+  esac
 }
+
+load-mcp-secrets() {
+  local spec server entry
+  for spec in "$@"; do
+    server="${spec%%=*}"
+    entry="${spec#*=}"
+    [[ "$entry" == "$spec" ]] && entry=""
+    load-mcp-secret "$server" "$entry" || return 1
+  done
+}
+
+load-codex-pat() {
+  load-mcp-secret github "$1"
+}
+
+codex-personal() {
+  load-mcp-secret github "$KEEPASS_ENTRY_GITHUB_PERSONAL" || return 1
+  command codex "$@"
+}
+
+codex-org() {
+  load-mcp-secret github "$KEEPASS_ENTRY_GITHUB_ESC" || return 1
+  command codex "$@"
+}
+
+alias codex='codex-personal'
 
 export DOCKER_HOST="unix:///var/run/docker.sock"
 
